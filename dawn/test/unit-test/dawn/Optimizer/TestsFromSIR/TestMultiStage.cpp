@@ -33,7 +33,7 @@ class MultiStageTest : public ::testing::Test {
   dawn::DawnCompiler compiler_;
 
 protected:
-  MultiStageTest() : compiler_(compileOptions_.get()) {}
+  MultiStageTest() : compiler_(*compileOptions_.get()) {}
   virtual void SetUp() {}
 
   std::shared_ptr<iir::StencilInstantiation> loadTest(std::string sirFilename,

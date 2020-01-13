@@ -33,7 +33,7 @@ class ComputeMaxExtents : public ::testing::Test {
   dawn::DawnCompiler compiler_;
 
 protected:
-  ComputeMaxExtents() : compiler_(compileOptions_.get()) {}
+  ComputeMaxExtents() : compiler_(*compileOptions_.get()) {}
   virtual void SetUp() {}
 
   const std::shared_ptr<iir::StencilInstantiation> loadTest(std::string sirFilename) {

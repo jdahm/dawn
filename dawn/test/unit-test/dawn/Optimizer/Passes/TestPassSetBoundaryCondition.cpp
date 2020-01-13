@@ -32,7 +32,7 @@ class StencilSplitAnalyzer : public ::testing::Test {
   dawn::DawnCompiler compiler_;
 
 protected:
-  StencilSplitAnalyzer() : compiler_(compileOptions_.get()) {}
+  StencilSplitAnalyzer() : compiler_(*compileOptions_.get()) {}
   virtual void SetUp() {}
 
   std::shared_ptr<iir::StencilInstantiation> loadTest(std::string sirFilename, bool splitStencils) {

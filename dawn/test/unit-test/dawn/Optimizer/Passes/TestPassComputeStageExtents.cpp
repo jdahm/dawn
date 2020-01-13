@@ -33,7 +33,7 @@ class ComputeStageExtents : public ::testing::Test {
   dawn::DawnCompiler compiler_;
 
 protected:
-  ComputeStageExtents() : compiler_(compileOptions_.get()) {}
+  ComputeStageExtents() : compiler_(*compileOptions_.get()) {}
   virtual void SetUp() {}
 
   std::unique_ptr<iir::IIR> loadTest(std::string sirFilename) {

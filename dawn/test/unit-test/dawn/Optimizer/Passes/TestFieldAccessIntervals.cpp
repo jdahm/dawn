@@ -33,7 +33,7 @@ class TestFieldAccessIntervals : public ::testing::Test {
   dawn::DawnCompiler compiler_;
 
 protected:
-  TestFieldAccessIntervals() : compiler_(compileOptions_.get()) {}
+  TestFieldAccessIntervals() : compiler_(*compileOptions_.get()) {}
   virtual void SetUp() {}
 
   std::shared_ptr<iir::StencilInstantiation> loadTest(std::string sirFilename) {
