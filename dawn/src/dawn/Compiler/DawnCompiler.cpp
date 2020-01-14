@@ -128,33 +128,35 @@ createOptimizerOptionsFromAllOptions(const Options& options) {
   return retval;
 }
 
+DawnCompiler::DawnCompiler() : options_(), diagnostics_(), filename_() {}
+
 DawnCompiler::DawnCompiler(Options const& options)
     : options_(options), diagnostics_(), filename_() {}
 
 std::map<std::string, std::shared_ptr<iir::StencilInstantiation>>
 DawnCompiler::parallelize(std::shared_ptr<SIR> const& stencilIR) {
-  diagnostics_->clear();
-  diagnostics_->setFilename(stencilIR->Filename);
+  diagnostics_.clear();
+  diagnostics_.setFilename(stencilIR->Filename);
 
   // -reorder
   using ReorderStrategyKind = ReorderStrategy::Kind;
-  ReorderStrategyKind reorderStrategy = StringSwitch<ReorderStrategyKind>(options_->ReorderStrategy)
+  ReorderStrategyKind reorderStrategy = StringSwitch<ReorderStrategyKind>(options_.ReorderStrategy)
                                             .Case("none", ReorderStrategyKind::None)
                                             .Case("greedy", ReorderStrategyKind::Greedy)
                                             .Case("scut", ReorderStrategyKind::Partitioning)
                                             .Default(ReorderStrategyKind::Unknown);
 
   if(reorderStrategy == ReorderStrategyKind::Unknown) {
-    diagnostics_->report(
-        buildDiag("-reorder", options_->ReorderStrategy, "", {"none", "greedy", "scut"}));
+    diagnostics_.report(
+        buildDiag("-reorder", options_.ReorderStrategy, "", {"none", "greedy", "scut"}));
     throw std::runtime_error("An error occurred.");
   }
 
   IIRSerializer::Format serializationKind = IIRSerializer::Format::Json;
-  if(options_->SerializeIIR || (options_->DeserializeIIR != "")) {
-    if(options_->IIRFormat == "json") {
+  if(options_.SerializeIIR || (options_.DeserializeIIR != "")) {
+    if(options_.IIRFormat == "json") {
       serializationKind = IIRSerializer::Format::Json;
-    } else if(options_->IIRFormat == "byte") {
+    } else if(options_.IIRFormat == "byte") {
       serializationKind = IIRSerializer::Format::Byte;
     } else {
       dawn_unreachable("Unknown SIRFormat option");

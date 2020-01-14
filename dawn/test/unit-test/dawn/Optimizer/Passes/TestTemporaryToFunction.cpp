@@ -29,7 +29,7 @@ class TemporaryToFunction : public ::testing::Test {
   dawn::DawnCompiler compiler_;
 
 protected:
-  TemporaryToFunction() : compiler_({}) {
+  TemporaryToFunction() {
     compiler_.getOptions().PassTmpToFunction = true;
     //    compiler_.getOptions().ReportPassTmpToFunction = true;
   }

@@ -35,6 +35,7 @@ class DawnCompiler : NonCopyable {
 
 public:
   /// @brief Initialize the compiler by setting up diagnostics
+  DawnCompiler();
   DawnCompiler(Options const& options);
 
   /// @brief Apply parallelizer, code optimization, and generate
