@@ -2,7 +2,7 @@ version: 2
 jobs:
   dawn:
     docker:
-      - image: jdahm/dawn_gcc9_deps
+      - image: jdahm/dawn-gcc9-deps
     steps:
       - checkout:
           path: /usr/src/dawn
