@@ -32,7 +32,7 @@ jobs:
       - run:
           name: Dawn python module tests
           command: |
-            /usr/src/dawn/dawn/examples/python/generate_and_diff /usr/src/dawn
+            /usr/src/dawn/dawn/examples/python/generate_and_diff /usr/src/dawn/dawn
             python -m pytest -v /usr/src/dawn/dawn/test/unit-test/test_dawn4py/
       - run:
           name: GTClang configure
