@@ -25,6 +25,7 @@
 #include "dawn/Optimizer/PassFixVersionedInputFields.h"
 #include "dawn/Optimizer/PassInlining.h"
 #include "dawn/Optimizer/PassIntervalPartitioner.h"
+#include "dawn/Optimizer/PassLocalVarType.h"
 #include "dawn/Optimizer/PassMultiStageSplitter.h"
 #include "dawn/Optimizer/PassPrintStencilGraph.h"
 #include "dawn/Optimizer/PassSSA.h"
@@ -139,7 +140,6 @@ DiagnosticsBuilder buildDiag(const std::string& option, const T& value, std::str
 
 } // namespace
 
-DawnCompiler::DawnCompiler() : diagnostics_(), options_() {}
 DawnCompiler::DawnCompiler(const Options& options) : diagnostics_(), options_(options) {}
 
 std::unique_ptr<OptimizerContext> DawnCompiler::runOptimizer(std::shared_ptr<SIR> const& SIR) {
@@ -194,16 +194,19 @@ std::unique_ptr<OptimizerContext> DawnCompiler::runOptimizer(std::shared_ptr<SIR
     //  optimizer->checkAndPushBack<PassTemporaryFirstAccss>();
     optimizer->checkAndPushBack<PassFieldVersioning>();
     optimizer->checkAndPushBack<PassSSA>();
+    optimizer->checkAndPushBack<PassLocalVarType>(); // Needs to be run before splitters.
     optimizer->checkAndPushBack<PassMultiStageSplitter>(mssSplitStrategy);
     optimizer->checkAndPushBack<PassStageSplitter>();
     optimizer->checkAndPushBack<PassPrintStencilGraph>();
     optimizer->checkAndPushBack<PassTemporaryType>();
+    optimizer->checkAndPushBack<PassLocalVarType>(); // Needs to be run after temporary type.
     optimizer->checkAndPushBack<PassSetStageName>();
     optimizer->checkAndPushBack<PassSetStageGraph>();
     optimizer->checkAndPushBack<PassStageReordering>(reorderStrategy);
     optimizer->checkAndPushBack<PassStageMerger>();
     optimizer->checkAndPushBack<PassStencilSplitter>(maxFields);
     optimizer->checkAndPushBack<PassTemporaryType>();
+    optimizer->checkAndPushBack<PassLocalVarType>(); // Needs to be run after temporary type.
     optimizer->checkAndPushBack<PassTemporaryMerger>();
     optimizer->checkAndPushBack<PassInlining>(
         (getOptions().InlineSF || getOptions().PassTmpToFunction),
