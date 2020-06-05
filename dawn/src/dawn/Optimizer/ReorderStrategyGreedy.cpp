@@ -21,6 +21,7 @@
 #include "dawn/Optimizer/OptimizerContext.h"
 #include "dawn/Optimizer/ReadBeforeWriteConflict.h"
 #include "dawn/Support/Exception.h"
+#include "dawn/Support/Iterator.h"
 #include <algorithm>
 #include <optional>
 #include <set>
