@@ -14,6 +14,8 @@
 
 #include "dawn/Optimizer/PassMultiStageMerger.h"
 #include "dawn/IIR/DependencyGraphAccesses.h"
+#include "dawn/IIR/DependencyGraphStage.h"
+#include "dawn/IIR/MultiStage.h"
 #include "dawn/IIR/Stage.h"
 #include "dawn/IIR/Stencil.h"
 #include "dawn/IIR/StencilInstantiation.h"

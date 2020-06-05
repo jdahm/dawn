@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include "dawn/IIR/DependencyGraphStage.h"
-#include "dawn/IIR/MultiStage.h"
 #include "dawn/Optimizer/Pass.h"
 
 namespace dawn {
