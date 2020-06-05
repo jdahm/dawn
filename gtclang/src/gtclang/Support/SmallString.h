@@ -16,13 +16,12 @@
 //
 //===------------------------------------------------------------------------------------------===//
 
-#ifndef DAWN_SUPPORT_SMALLSTRING_H
-#define DAWN_SUPPORT_SMALLSTRING_H
+#pragma once
 
-#include "dawn/Support/SmallVector.h"
-#include "dawn/Support/StringRef.h"
+#include "gtclang/Support/SmallVector.h"
+#include "gtclang/Support/StringRef.h"
 
-namespace dawn {
+namespace gtclang {
 
 /// @brief A SmallString is just a SmallVector with methods and accessors that make it work better
 /// as a string (e.g. operator+ etc).
@@ -261,6 +260,4 @@ public:
   }
 };
 
-} // namespace dawn
-
-#endif
+} // namespace gtclang

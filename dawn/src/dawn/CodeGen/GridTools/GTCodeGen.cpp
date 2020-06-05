@@ -26,8 +26,8 @@
 #include "dawn/IIR/StencilInstantiation.h"
 #include "dawn/SIR/SIR.h"
 #include "dawn/Support/Assert.h"
-#include "dawn/Support/DiagnosticsEngine.h"
-#include "dawn/Support/Logging.h"
+#include "dawn/Support/Exception.h"
+#include "dawn/Support/Logger.h"
 #include "dawn/Support/StringUtil.h"
 #include <map>
 #include <optional>
@@ -81,21 +81,16 @@ std::unique_ptr<TranslationUnit>
 run(const std::map<std::string, std::shared_ptr<iir::StencilInstantiation>>&
         stencilInstantiationMap,
     const Options& options) {
-  DiagnosticsEngine diagnostics;
-  GTCodeGen CG(stencilInstantiationMap, diagnostics, options.UseParallelEP, options.MaxHaloSize);
-  if(diagnostics.hasDiags()) {
-    for(const auto& diag : diagnostics.getQueue())
-      DAWN_LOG(INFO) << diag->getMessage();
-    throw std::runtime_error("An error occurred in code generation");
-  }
+  GTCodeGen CG(stencilInstantiationMap, options.UseParallelEP, options.MaxHaloSize,
+               options.RunWithSync);
 
   return CG.generateCode();
 }
 
-GTCodeGen::GTCodeGen(const StencilInstantiationContext& ctx, DiagnosticsEngine& engine,
-                     bool useParallelEP, int maxHaloPoints)
-    : CodeGen(ctx, engine, maxHaloPoints),
-      mplContainerMaxSize_(20), codeGenOptions_{useParallelEP} {}
+GTCodeGen::GTCodeGen(const StencilInstantiationContext& ctx, bool useParallelEP, int maxHaloPoints,
+                     bool runWithSync)
+    : CodeGen(ctx, maxHaloPoints),
+      mplContainerMaxSize_(20), codeGenOptions_{useParallelEP, runWithSync} {}
 
 GTCodeGen::~GTCodeGen() {}
 
@@ -217,7 +212,7 @@ void GTCodeGen::generatePlaceholderDefinitions(
     // Fields
     stencilClass.addTypeDef("p_" + fieldInfo.Name)
         .addType(c_gt() + (fieldInfo.IsTemporary ? "tmp_arg" : "arg"))
-        .addTemplate(Twine(accessorIdx))
+        .addTemplate(accessorIdx)
         .addTemplate(codeGenProperties.getParamType(stencilInstantiation, fieldInfo));
     ++accessorIdx;
   }
@@ -226,7 +221,7 @@ void GTCodeGen::generatePlaceholderDefinitions(
     stencilClass.addTypeDef("globals_gp_t").addType(c_gt() + "global_parameter<backend_t,globals>");
     stencilClass.addTypeDef("p_globals")
         .addType(c_gt() + "arg")
-        .addTemplate(Twine(accessorIdx))
+        .addTemplate(accessorIdx)
         .addTemplate("globals_gp_t");
   }
 }
@@ -385,9 +380,12 @@ void GTCodeGen::generateStencilWrapperRun(
   }
 
   RunMethod.startBody();
-
   RangeToString apiFieldArgs(",", "", "");
-  RunMethod.addStatement("sync_storages(" + apiFieldArgs(apiFieldNames) + ")");
+
+  bool withSync = codeGenOptions_.runWithSync_;
+  if(withSync) {
+    RunMethod.addStatement("sync_storages(" + apiFieldArgs(apiFieldNames) + ")");
+  }
 
   ASTStencilDesc stencilDescCGVisitor(stencilInstantiation, codeGenProperties,
                                       stencilIDToRunArguments);
@@ -398,7 +396,9 @@ void GTCodeGen::generateStencilWrapperRun(
     RunMethod << stencilDescCGVisitor.getCodeAndResetStream();
   }
 
-  RunMethod.addStatement("sync_storages(" + apiFieldArgs(apiFieldNames) + ")");
+  if(withSync) {
+    RunMethod.addStatement("sync_storages(" + apiFieldArgs(apiFieldNames) + ")");
+  }
   RunMethod.commit();
 }
 void GTCodeGen::generateStencilWrapperCtr(
@@ -480,7 +480,7 @@ void GTCodeGen::generateStencilWrapperMembers(
   stencilWrapperClass.addMember("const " + c_dgt() + "domain", "m_dom");
 
   stencilWrapperClass.addMember("static constexpr const char* s_name =",
-                                Twine("\"") + stencilWrapperClass.getName() + Twine("\""));
+                                "\"" + stencilWrapperClass.getName() + "\"");
 
   // globals member
   if(!globalsMap.empty()) {
@@ -528,12 +528,10 @@ void GTCodeGen::generateStencilClasses(
           return !f.second.IsTemporary;
         });
     if(stencil.isEmpty()) {
-      DiagnosticsBuilder diag(DiagnosticsKind::Error,
-                              stencilInstantiation->getMetaData().getStencilLocation());
-      diag << "empty stencil '" << stencilInstantiation->getName()
-           << "', this would result in invalid gridtools code";
-      diagEngine.report(diag);
-      return;
+      throw SemanticError(std::string("Empty stencil '") + stencilInstantiation->getName() +
+                              "', this would result in invalid gridtools code",
+                          stencilInstantiation->getMetaData().getFileName(),
+                          stencilInstantiation->getMetaData().getStencilLocation());
     }
 
     // Check for horizontal iteration spaces
@@ -622,11 +620,11 @@ void GTCodeGen::generateStencilClasses(
         std::vector<std::string> arglist;
 
         if(fields.empty() && !stencilFun->hasReturn()) {
-          DiagnosticsBuilder diag(DiagnosticsKind::Error, stencilFun->getStencilFunction()->Loc);
-          diag << "no storages referenced in stencil function '" << stencilFun->getName()
-               << "', this would result in invalid gridtools code";
-          diagEngine.report(diag);
-          return;
+          throw SemanticError(std::string("No storages referenced in stencil '") +
+                                  stencilInstantiation->getName() +
+                                  "', this would result in invalid gridtools code",
+                              stencilInstantiation->getMetaData().getFileName(),
+                              stencilInstantiation->getMetaData().getStencilLocation());
         }
 
         // If we have a return argument, we generate a special `__out` field
@@ -652,13 +650,16 @@ void GTCodeGen::generateStencilClasses(
               iir::extent_cast<dawn::iir::CartesianExtent const&>(extents.horizontalExtent());
           auto const& vExtents = extents.verticalExtent();
 
-          extent.addTemplate(Twine(hExtents.iMinus()) + ", " + Twine(hExtents.iPlus()));
-          extent.addTemplate(Twine(hExtents.jMinus()) + ", " + Twine(hExtents.jPlus()));
-          extent.addTemplate(Twine(vExtents.minus()) + ", " + Twine(vExtents.plus()));
+          extent.addTemplate(std::to_string(hExtents.iMinus()) + ", " +
+                             std::to_string(hExtents.iPlus()));
+          extent.addTemplate(std::to_string(hExtents.jMinus()) + ", " +
+                             std::to_string(hExtents.jPlus()));
+          extent.addTemplate(std::to_string(vExtents.minus()) + ", " +
+                             std::to_string(vExtents.plus()));
 
           StencilFunStruct.addTypeDef(paramName)
               .addType(c_gt() + "accessor")
-              .addTemplate(Twine(accessorID))
+              .addTemplate(accessorID)
               .addTemplate(c_gt_intent() + ((fields[m].getIntend() == iir::Field::IntendKind::Input)
                                                 ? "in"
                                                 : "inout"))
@@ -671,7 +672,7 @@ void GTCodeGen::generateStencilClasses(
         if(stencilFun->hasGlobalVariables()) {
           StencilFunStruct.addTypeDef("globals")
               .addType(c_gt() + "global_accessor")
-              .addTemplate(Twine(accessorID));
+              .addTemplate(accessorID);
           accessorID++;
           arglist.push_back("globals");
         }
@@ -766,8 +767,7 @@ void GTCodeGen::generateStencilClasses(
                   c_gt() + "cache_io_policy::" + cache.getIOPolicyAsString() +
                   // Interval: if IOPolicy is not local, we need to provide the interval
                   ">(p_" + metadata.getFieldNameFromAccessID(cache.getCachedFieldAccessID()) +
-                  "())")
-              .str();
+                  "())");
         });
       }
 
@@ -777,8 +777,8 @@ void GTCodeGen::generateStencilClasses(
         const auto& stagePtr = *stageIt;
         const iir::Stage& stage = *stagePtr;
 
-        Structure StageStruct =
-            stencilClass.addStruct(Twine("stage_") + Twine(multiStageIdx) + "_" + Twine(stageIdx));
+        Structure StageStruct = stencilClass.addStruct("stage_" + std::to_string(multiStageIdx) +
+                                                       "_" + std::to_string(stageIdx));
 
         ssMS << c_gt() + "make_stage_with_extent<" << StageStruct.getName()
              << ", " + c_gt() + "extent< ";
@@ -792,11 +792,11 @@ void GTCodeGen::generateStencilClasses(
         // Field declaration
         std::vector<std::string> arglist;
         if(fields.empty()) {
-          DiagnosticsBuilder diag(DiagnosticsKind::Error,
-                                  stencilInstantiation->getMetaData().getStencilLocation());
-          diag << "no storages referenced in stencil '" << stencilInstantiation->getName()
-               << "', this would result in invalid gridtools code";
-          diagEngine.report(diag);
+          throw SemanticError(std::string("No storages referenced in stencil '") +
+                                  stencilInstantiation->getName() +
+                                  "', this would result in invalid gridtools code",
+                              stencilInstantiation->getMetaData().getFileName(),
+                              stencilInstantiation->getMetaData().getStencilLocation());
         }
 
         std::size_t accessorIdx = 0;
@@ -815,13 +815,16 @@ void GTCodeGen::generateStencilClasses(
               iir::extent_cast<iir::CartesianExtent const&>(extents.horizontalExtent());
           auto const& fieldVExtents = extents.verticalExtent();
 
-          extent.addTemplate(Twine(fieldHExtents.iMinus()) + ", " + Twine(fieldHExtents.iPlus()));
-          extent.addTemplate(Twine(fieldHExtents.jMinus()) + ", " + Twine(fieldHExtents.jPlus()));
-          extent.addTemplate(Twine(fieldVExtents.minus()) + ", " + Twine(fieldVExtents.plus()));
+          extent.addTemplate(std::to_string(fieldHExtents.iMinus()) + ", " +
+                             std::to_string(fieldHExtents.iPlus()));
+          extent.addTemplate(std::to_string(fieldHExtents.jMinus()) + ", " +
+                             std::to_string(fieldHExtents.jPlus()));
+          extent.addTemplate(std::to_string(fieldVExtents.minus()) + ", " +
+                             std::to_string(fieldVExtents.plus()));
 
           StageStruct.addTypeDef(paramName)
               .addType(c_gt() + "accessor")
-              .addTemplate(Twine(accessorIdx))
+              .addTemplate(accessorIdx)
               .addTemplate(c_gt_intent() +
                            ((field.getIntend() == iir::Field::IntendKind::Input) ? "in" : "inout"))
               .addTemplate(extent);
@@ -837,7 +840,7 @@ void GTCodeGen::generateStencilClasses(
         if(stage.hasGlobalVariables()) {
           StageStruct.addTypeDef("globals")
               .addType(c_gt() + "global_accessor")
-              .addTemplate(Twine(accessorIdx));
+              .addTemplate(accessorIdx);
 
           ssMS << "p_"
                << "globals"
@@ -986,9 +989,9 @@ void GTCodeGen::generateStencilClasses(
         (!domainMapPlaceholders.empty() ? RangeToString(", ", "", ",")(domainMapPlaceholders) : "");
 
     // This is a memory leak.. but nothing we can do ;)
-    StencilConstructor.addStatement(Twine("m_stencil = " + c_gt() +
-                                          "make_computation<backend_t>(grid_, " + plchdrStr +
-                                          RangeToString(", ", "", ")")(makeComputation)));
+    StencilConstructor.addStatement("m_stencil = " + c_gt() +
+                                    "make_computation<backend_t>(grid_, " + plchdrStr +
+                                    RangeToString(", ", "", ")")(makeComputation));
     StencilConstructor.commit();
 
     stencilClass.addComment("Members");
@@ -996,7 +999,7 @@ void GTCodeGen::generateStencilClasses(
     auto plchdrs = CodeGenUtils::buildPlaceholderList(stencilInstantiation->getMetaData(),
                                                       stencilFields, globalsMap);
 
-    stencilType = c_gt().str() + "computation" + RangeToString(",", "<", ">")(plchdrs);
+    stencilType = c_gt() + "computation" + RangeToString(",", "<", ">")(plchdrs);
 
     stencilClass.addMember(stencilType, "m_stencil");
 

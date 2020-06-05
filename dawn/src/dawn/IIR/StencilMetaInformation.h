@@ -12,8 +12,7 @@
 //
 //===------------------------------------------------------------------------------------------===//
 
-#ifndef DAWN_IIR_METAINFORMATION_H
-#define DAWN_IIR_METAINFORMATION_H
+#pragma once
 
 #include "dawn/IIR/ASTFwd.h"
 #include "dawn/IIR/Extents.h"
@@ -24,7 +23,6 @@
 #include "dawn/Support/DoubleSidedMap.h"
 #include "dawn/Support/NonCopyable.h"
 #include "dawn/Support/RemoveIf.hpp"
-#include "dawn/Support/StringRef.h"
 #include "dawn/Support/UIDGenerator.h"
 #include "dawn/Support/Unreachable.h"
 #include <memory>
@@ -429,5 +427,3 @@ private:
 };
 } // namespace iir
 } // namespace dawn
-
-#endif

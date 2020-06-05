@@ -15,8 +15,7 @@ include(GoogleTest)
 
 set(executable ${PROJECT_NAME}UnittestSupport)
 add_executable(${executable}
-  TestSmallVector.cpp
-  TestStringRef.cpp
+  TestLogger.cpp
   TestArrayRef.cpp
   TestIndexRange.cpp
   TestRemoveIf.cpp

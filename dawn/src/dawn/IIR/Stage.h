@@ -12,8 +12,7 @@
 //
 //===------------------------------------------------------------------------------------------===//
 
-#ifndef DAWN_IIR_STAGE_H
-#define DAWN_IIR_STAGE_H
+#pragma once
 
 #include "dawn/IIR/DoMethod.h"
 #include "dawn/IIR/Extents.h"
@@ -21,7 +20,6 @@
 #include "dawn/IIR/IIRNode.h"
 #include "dawn/IIR/Interval.h"
 #include "dawn/IIR/StencilMetaInformation.h"
-#include "dawn/Support/ArrayRef.h"
 #include "dawn/Support/ContainerUtils.h"
 #include <deque>
 #include <memory>
@@ -255,5 +253,3 @@ public:
 
 } // namespace iir
 } // namespace dawn
-
-#endif

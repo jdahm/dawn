@@ -20,9 +20,8 @@
 namespace dawn {
 namespace codegen {
 
-CodeGen::CodeGen(const StencilInstantiationContext& ctx, DiagnosticsEngine& engine,
-                 int maxHaloPoints)
-    : context_(ctx), diagEngine(engine), codeGenOptions{maxHaloPoints} {}
+CodeGen::CodeGen(const StencilInstantiationContext& ctx, int maxHaloPoints)
+    : context_(ctx), codeGenOptions{maxHaloPoints} {}
 
 size_t CodeGen::getVerticalTmpHaloSize(iir::Stencil const& stencil) {
   std::optional<iir::Interval> tmpInterval = stencil.getEnclosingIntervalTemporaries();
@@ -147,7 +146,7 @@ void CodeGen::generateBoundaryConditionFunctions(
     for(const auto& sf : stencilInstantiation->getIIR()->getStencilFunctions()) {
       if(sf->Name == usedBoundaryCondition.second->getFunctor()) {
 
-        Structure BoundaryCondition = stencilWrapperClass.addStruct(Twine(sf->Name));
+        Structure BoundaryCondition = stencilWrapperClass.addStruct(sf->Name);
         std::string templatefunctions = "typename Direction ";
         std::string functionargs = "Direction ";
 
@@ -157,8 +156,8 @@ void CodeGen::generateBoundaryConditionFunctions(
           functionargs += dawn::format(", DataField_%i &data_field_%i", i, i);
         }
         functionargs += ", int i , int j, int k";
-        auto BC = BoundaryCondition.addMemberFunction(
-            Twine("GT_FUNCTION void"), Twine("operator()"), Twine(templatefunctions));
+        auto BC = BoundaryCondition.addMemberFunction("GT_FUNCTION void", "operator()",
+                                                      templatefunctions);
         BC.isConst(true);
         BC.addArg(functionargs);
         BC.startBody();
@@ -250,7 +249,7 @@ CodeGen::computeCodeGenProperties(const iir::StencilInstantiation* stencilInstan
       }
 
       for(const auto& field : tempFields) {
-        paramNameToType.emplace(field.second.Name, c_dgt().str() + "storage_t");
+        paramNameToType.emplace(field.second.Name, c_dgt() + "storage_t");
       }
     }
   }

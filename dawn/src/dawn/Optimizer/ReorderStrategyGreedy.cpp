@@ -19,7 +19,13 @@
 #include "dawn/IIR/Stencil.h"
 #include "dawn/IIR/StencilInstantiation.h"
 #include "dawn/Optimizer/OptimizerContext.h"
-#include "dawn/Support/Iterator.h"
+#include "dawn/Optimizer/ReadBeforeWriteConflict.h"
+#include "dawn/Support/Exception.h"
+#include <algorithm>
+#include <optional>
+#include <set>
+#include <sstream>
+#include <vector>
 
 namespace dawn {
 
